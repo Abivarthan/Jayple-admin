@@ -96,6 +96,16 @@ const Dashboard = () => {
   const failedBookings = bookings.filter((b) => b.status === 'failed' || b.status === 'cancelled');
   const totalEarnings = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
 
+  const enrichedRecentBookings = bookings.slice(0, 8).map(b => {
+    const vendor = vendors.find(v => v.id === b.vendorId);
+    const customer = users.find(u => u.id === b.customerId || u.id === b.userId);
+    return {
+      ...b,
+      vendorName: b.vendorName || vendor?.businessName || vendor?.name || '—',
+      customerName: b.customerName || customer?.name || '—',
+    };
+  });
+
   const revenueData = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
@@ -190,11 +200,11 @@ const Dashboard = () => {
                 <tr><th>Booking ID</th><th>Customer</th><th>Vendor</th><th>Amount</th><th>Status</th></tr>
               </thead>
               <tbody>
-                {bookings.slice(0, 5).map((b) => (
+                {enrichedRecentBookings.map((b) => (
                   <tr key={b.id}>
                     <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>#{b.id?.slice(0, 8)}</td>
-                    <td>{b.customerName || '—'}</td>
-                    <td>{b.vendorName || '—'}</td>
+                    <td>{b.customerName}</td>
+                    <td>{b.vendorName}</td>
                     <td style={{ fontWeight: 600 }}>₹{b.amount || 0}</td>
                     <td>
                       <Chip label={b.status || 'pending'} size="small" color={b.status === 'completed' ? 'success' : b.status === 'pending' ? 'warning' : b.status === 'cancelled' ? 'error' : 'default'} variant="outlined" />

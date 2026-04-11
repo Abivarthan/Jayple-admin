@@ -24,13 +24,27 @@ export const subscribeToUsers = (callback) => {
 
 // ── Vendors ──
 export const subscribeToVendors = (callback) => {
-  return onSnapshot(
+  // Listen to both sources and merge them
+  let usersVendors = [];
+  let legacyVendors = [];
+
+  const unsubUsers = onSnapshot(
     query(collection(db, 'users'), where('role', '==', 'vendor')),
     (snapshot) => {
-      const vendors = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      callback(vendors);
+      usersVendors = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      callback([...usersVendors, ...legacyVendors]);
     }
   );
+
+  const unsubLegacy = onSnapshot(collection(db, 'vendors'), (snapshot) => {
+    legacyVendors = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    callback([...usersVendors, ...legacyVendors]);
+  });
+
+  return () => {
+    unsubUsers();
+    unsubLegacy();
+  };
 };
 
 export const subscribeToVendorsLegacy = (callback) => {
@@ -50,9 +64,22 @@ export const getVendorById = async (vendorId) => {
 };
 
 export const subscribeToVendorById = (vendorId, callback) => {
-  return onSnapshot(doc(db, 'users', vendorId), (snap) => {
-    callback(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+  // Check users first
+  const unsubUsers = onSnapshot(doc(db, 'users', vendorId), (snap) => {
+    if (snap.exists()) {
+      callback({ id: snap.id, ...snap.data() });
+    } else {
+      // If not in users, check vendors collection
+      onSnapshot(doc(db, 'vendors', vendorId), (vSnap) => {
+        if (vSnap.exists()) {
+          callback({ id: vSnap.id, ...vSnap.data() });
+        } else {
+          callback(null);
+        }
+      });
+    }
   });
+  return unsubUsers;
 };
 
 // ── Bookings ──
@@ -125,30 +152,50 @@ export const subscribeToVendorSettlements = (vendorId, callback) => {
 };
 
 /**
- * Handle Payout:
- * 1. Read vendor's walletBalance
+ * Handle Manual Payout:
+ * 1. Fetch vendor wallet balance
  * 2. Create settlement record in 'settlements' collection
- * 3. Reset vendor walletBalance to 0
- * 4. Update vendor lastPayout timestamp
+ * 3. Reset vendor wallet balance to 0
+ * 4. Update vendor lastPayoutDate
  */
-export const handlePayout = async (vendorId, vendorName, amount, payoutMethod = 'bank_transfer') => {
-  // Create settlement record
-  const ref = await addDoc(collection(db, 'settlements'), {
+export const handlePayout = async (vendorId, vendorName, amount) => {
+  if (!vendorId) throw new Error('Vendor ID is required');
+  
+  // 1. Create settlement record
+  const settlementRef = await addDoc(collection(db, 'settlements'), {
     vendorId,
     vendorName,
     amount,
-    date: serverTimestamp(),
+    payoutDate: serverTimestamp(),
     status: 'completed',
-    payoutMethod,
+    createdAt: serverTimestamp(),
   });
 
-  // Reset vendor wallet and update last payout date
-  await updateDoc(doc(db, 'users', vendorId), {
-    walletBalance: 0,
-    lastPayout: serverTimestamp(),
-  });
+  // 2. Reset vendor wallet and update last payout date
+  // We check both 'vendors' and 'users' based on the unified approach
+  const vendorRef = doc(db, 'vendors', vendorId);
+  const vendorSnap = await getDoc(vendorRef);
+  
+  if (vendorSnap.exists()) {
+    await updateDoc(vendorRef, {
+      walletBalance: 0,
+      lastPayoutDate: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } else {
+    // Fallback to 'users' if that's where the vendor is
+    const userRef = doc(db, 'users', vendorId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      await updateDoc(userRef, {
+        walletBalance: 0,
+        lastPayoutDate: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  }
 
-  return ref.id;
+  return settlementRef.id;
 };
 
 // ── Payouts (legacy compat) ──

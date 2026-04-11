@@ -14,16 +14,19 @@ import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import { motion } from 'framer-motion';
 import {
-  subscribeToVendors, subscribeToSettlements, handlePayout,
+  subscribeToVendors, subscribeToSettlements, subscribeToBookings, handlePayout,
   formatTimestamp, formatCurrency, getNextTuesday,
 } from '../services/firestoreService';
+import { useNavigate } from 'react-router-dom';
 
 const MotionCard = motion(Card);
 const COMMISSION_RATE = 0.10;
 
 const Settlements = () => {
+  const navigate = useNavigate();
   const [vendors, setVendors] = useState([]);
   const [settlements, setSettlements] = useState([]);
+  const [allBookings, setAllBookings] = useState([]);
   const [search, setSearch] = useState('');
   const [balanceFilter, setBalanceFilter] = useState('all');
   const [page, setPage] = useState(0);
@@ -37,17 +40,19 @@ const Settlements = () => {
     const unsubs = [
       subscribeToVendors(setVendors),
       subscribeToSettlements(setSettlements),
+      subscribeToBookings(setAllBookings),
     ];
     return () => unsubs.forEach((u) => u && u());
   }, []);
 
   // Build settlement view data from vendors
   const vendorData = vendors.map((v) => {
-    const totalEarnings = v.totalEarnings || 0;
-    const commission = v.commission || totalEarnings * COMMISSION_RATE;
-    const walletBalance = v.walletBalance || 0;
-    const pendingAmount = walletBalance;
-    const lastPayout = v.lastPayout;
+    // Priority 1: Use fields directly from vendor document
+    // Priority 2: Fallback to dynamic calculation if fields missing
+    const totalEarnings = v.totalEarnings ?? 0;
+    const commission = v.totalCommission ?? (totalEarnings * COMMISSION_RATE);
+    const walletBalance = v.walletBalance ?? (totalEarnings - commission);
+    const lastPayout = v.lastPayoutDate || v.lastPayout; // Handle both field names
     const vendorSettlements = settlements.filter((s) => s.vendorId === v.id);
 
     return {
@@ -55,7 +60,6 @@ const Settlements = () => {
       totalEarnings,
       platformCommission: commission,
       availableBalance: walletBalance,
-      pendingAmount,
       lastPayoutDate: lastPayout,
       payoutCount: vendorSettlements.length,
     };
@@ -84,8 +88,7 @@ const Settlements = () => {
       await handlePayout(
         payoutVendor.id,
         payoutVendor.name,
-        payoutVendor.availableBalance,
-        'bank_transfer'
+        payoutVendor.availableBalance
       );
       setSnackbar({ open: true, message: `✅ Payout of ${formatCurrency(payoutVendor.availableBalance)} to ${payoutVendor.name} completed!` });
       setPayoutDialogOpen(false);
@@ -197,10 +200,10 @@ const Settlements = () => {
                 <tr>
                   <th>Vendor Name</th>
                   <th>Vendor ID</th>
+                  <th>Phone</th>
                   <th>Total Earnings</th>
                   <th>Commission</th>
                   <th>Available Balance</th>
-                  <th>Pending Amount</th>
                   <th>Last Payout</th>
                   <th>Action</th>
                 </tr>
@@ -209,24 +212,27 @@ const Settlements = () => {
                 {paged.map((v) => (
                   <tr key={v.id}>
                     <td>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box 
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}
+                        onClick={() => navigate(`/vendors/${v.id}`)}
+                      >
                         <Avatar sx={{ width: 34, height: 34, fontSize: '0.8rem', fontWeight: 700, bgcolor: '#7C5CFC' }}>
                           {(v.name || '?')[0]?.toUpperCase()}
                         </Avatar>
                         <Box>
-                          <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{v.name || '—'}</Typography>
+                          <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}>
+                            {v.name || '—'}
+                          </Typography>
                           <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{v.businessName || ''}</Typography>
                         </Box>
                       </Box>
                     </td>
                     <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#94A3B8' }}>{v.id?.slice(0, 12)}...</td>
+                    <td style={{ fontFamily: 'monospace' }}>{v.phone || '—'}</td>
                     <td style={{ fontWeight: 600 }}>{formatCurrency(v.totalEarnings)}</td>
                     <td style={{ color: '#FFB547' }}>{formatCurrency(v.platformCommission)}</td>
                     <td style={{ fontWeight: 700, color: v.availableBalance > 0 ? '#00D9A6' : 'inherit' }}>
                       {formatCurrency(v.availableBalance)}
-                    </td>
-                    <td style={{ fontWeight: 600, color: v.pendingAmount > 0 ? '#FF5C6C' : '#00D9A6' }}>
-                      {formatCurrency(v.pendingAmount)}
                     </td>
                     <td style={{ color: '#94A3B8' }}>{formatTimestamp(v.lastPayoutDate)}</td>
                     <td>
@@ -282,10 +288,10 @@ const Settlements = () => {
               <tbody>
                 {settlements.slice(0, 15).map((s) => (
                   <tr key={s.id}>
-                    <td style={{ color: '#94A3B8' }}>{formatTimestamp(s.date)}</td>
+                    <td style={{ color: '#94A3B8' }}>{formatTimestamp(s.payoutDate || s.date || s.createdAt)}</td>
                     <td style={{ fontWeight: 600 }}>{s.vendorName || '—'}</td>
                     <td style={{ fontWeight: 600 }}>{formatCurrency(s.amount)}</td>
-                    <td>{s.payoutMethod || 'Bank Transfer'}</td>
+                    <td>Manual Withdrawal</td>
                     <td><Chip label={s.status === 'completed' ? 'Completed' : s.status || 'Pending'} color={s.status === 'completed' ? 'success' : 'warning'} size="small" variant="outlined" /></td>
                   </tr>
                 ))}
@@ -305,7 +311,7 @@ const Settlements = () => {
           {payoutVendor && (
             <Box>
               <Typography sx={{ mb: 2.5, color: 'text.secondary' }}>
-                Are you sure you want to payout <strong style={{ color: '#F1F5F9' }}>{formatCurrency(payoutVendor.availableBalance)}</strong> to <strong style={{ color: '#F1F5F9' }}>{payoutVendor.name}</strong>?
+                Are you sure you want to payout <strong style={{ color: '#fff' }}>{formatCurrency(payoutVendor.availableBalance)}</strong> to <strong style={{ color: '#fff' }}>{payoutVendor.name}</strong>?
               </Typography>
               <Card variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
                 <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>

@@ -6,7 +6,8 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded';
 import { motion } from 'framer-motion';
-import { subscribeToBookings, formatCurrency, formatTimestamp } from '../services/firestoreService';
+import { subscribeToBookings, subscribeToVendors, subscribeToUsers, formatCurrency, formatTimestamp } from '../services/firestoreService';
+import { useNavigate } from 'react-router-dom';
 import { isWithinInterval, startOfDay, endOfDay, parseISO } from 'date-fns';
 
 const statusConfig = {
@@ -18,7 +19,10 @@ const statusConfig = {
 };
 
 const BookingsManagement = () => {
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -27,11 +31,25 @@ const BookingsManagement = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
-    const unsub = subscribeToBookings(setBookings);
-    return () => unsub && unsub();
+    const unsubs = [
+      subscribeToBookings(setBookings),
+      subscribeToVendors(setVendors),
+      subscribeToUsers(setCustomers),
+    ];
+    return () => unsubs.forEach(unsub => unsub && unsub());
   }, []);
 
-  const filtered = bookings.filter((b) => {
+  const enrichedBookings = bookings.map(b => {
+    const vendor = vendors.find(v => v.id === b.vendorId);
+    const customer = customers.find(c => c.id === b.customerId || c.id === b.userId);
+    return {
+      ...b,
+      vendorName: b.vendorName || vendor?.businessName || vendor?.name || '—',
+      customerName: b.customerName || customer?.name || '—',
+    };
+  });
+
+  const filtered = enrichedBookings.filter((b) => {
     // Search match
     const matchSearch =
       (b.id || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -130,8 +148,27 @@ const BookingsManagement = () => {
                 {paged.map((b) => (
                   <tr key={b.id}>
                     <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>#{(b.id || '').slice(0, 8)}</td>
-                    <td>{b.customerName || '—'}</td>
-                    <td>{b.vendorName || '—'}</td>
+                    <td>{b.customerName}</td>
+                    <td>
+                      {b.vendorId ? (
+                        <Button
+                          size="small"
+                          onClick={() => navigate(`/vendors/${b.vendorId}`)}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            p: 0,
+                            minWidth: 'auto',
+                            color: 'primary.main',
+                            '&:hover': { textDecoration: 'underline', bgcolor: 'transparent' }
+                          }}
+                        >
+                          {b.vendorName}
+                        </Button>
+                      ) : (
+                        b.vendorName
+                      )}
+                    </td>
                     <td>{b.service || '—'}</td>
                     <td style={{ fontWeight: 600 }}>{formatCurrency(b.amount)}</td>
                     <td><Chip label={statusConfig[b.status]?.label || b.status || 'Unknown'} color={statusConfig[b.status]?.color || 'default'} size="small" variant="outlined" /></td>
