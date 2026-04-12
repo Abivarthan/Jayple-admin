@@ -5,6 +5,7 @@ import {
   getDocs,
   getDoc,
   updateDoc,
+  deleteDoc,
   addDoc,
   query,
   where,
@@ -255,4 +256,29 @@ export const formatTimestamp = (ts) => {
 
 export const formatCurrency = (amount) => {
   return `₹${(amount || 0).toLocaleString('en-IN')}`;
+};
+
+// ── Delete Vendor ──
+export const deleteVendor = async (vendorId) => {
+  if (!vendorId) throw new Error('Vendor ID is required');
+
+  // 1. Delete from 'users'
+  await deleteDoc(doc(db, 'users', vendorId));
+
+  // 2. Delete from 'vendors' (legacy)
+  await deleteDoc(doc(db, 'vendors', vendorId));
+
+  // 3. Delete related records
+  const collectionsToDelete = ['bookings', 'transactions', 'settlements', 'payouts'];
+  const deletePromises = [];
+
+  for (const colName of collectionsToDelete) {
+    const q = query(collection(db, colName), where('vendorId', '==', vendorId));
+    const snap = await getDocs(q);
+    snap.docs.forEach((d) => {
+      deletePromises.push(deleteDoc(d.ref));
+    });
+  }
+
+  await Promise.all(deletePromises);
 };

@@ -16,15 +16,18 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { motion } from 'framer-motion';
 import {
   subscribeToVendorById,
   subscribeToVendorBookings,
   subscribeToVendorTransactions,
   subscribeToVendorSettlements,
+  deleteVendor,
   formatTimestamp,
   formatCurrency,
 } from '../services/firestoreService';
+import DeleteVendorModal from '../components/DeleteVendorModal';
 
 const MotionCard = motion(Card);
 const COMMISSION_RATE = 0.10;
@@ -51,6 +54,7 @@ const VendorDetails = () => {
   const [txnPage, setTxnPage] = useState(0);
   const [txnRows, setTxnRows] = useState(10);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     const unsubs = [
@@ -61,6 +65,11 @@ const VendorDetails = () => {
     ];
     return () => unsubs.forEach((u) => u && u());
   }, [vendorId]);
+
+  const handleDeleteConfirm = async () => {
+    await deleteVendor(vendorId);
+    navigate('/vendors');
+  };
 
   if (loading) {
     return (
@@ -120,7 +129,7 @@ const VendorDetails = () => {
     { icon: <PhoneRoundedIcon sx={{ fontSize: '1rem' }} />, label: 'Phone', value: vendor.phone },
     { icon: <EmailRoundedIcon sx={{ fontSize: '1rem' }} />, label: 'Email', value: vendor.email },
     { icon: <LocationOnRoundedIcon sx={{ fontSize: '1rem' }} />, label: 'Location', value: vendor.city || vendor.location },
-    { icon: <StorefrontRoundedIcon sx={{ fontSize: '1rem' }} />, label: 'Business', value: vendor.businessName },
+    { icon: <StorefrontRoundedIcon sx={{ fontSize: '1rem' }} />, label: 'Business', value: vendor.businessName || vendor.name },
     { icon: <CalendarTodayRoundedIcon sx={{ fontSize: '1rem' }} />, label: 'Joined', value: formatTimestamp(vendor.createdAt) },
   ];
 
@@ -142,6 +151,9 @@ const VendorDetails = () => {
             </Box>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>ID: {vendorId}</Typography>
           </Box>
+          <IconButton onClick={() => setIsDeleteModalOpen(true)} sx={{ bgcolor: 'error.lighter', color: 'error.main', borderRadius: 3, '&:hover': { bgcolor: 'error.light' } }}>
+            <DeleteOutlineRoundedIcon />
+          </IconButton>
         </Box>
       </motion.div>
 
@@ -273,6 +285,12 @@ const VendorDetails = () => {
           </Box>
         </CardContent>
       </MotionCard>
+      <DeleteVendorModal
+        open={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        vendorName={vendor?.name || 'this vendor'}
+      />
     </Box>
   );
 };

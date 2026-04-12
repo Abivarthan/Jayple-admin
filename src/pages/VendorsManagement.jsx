@@ -12,8 +12,10 @@ import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { motion } from 'framer-motion';
-import { subscribeToVendors, updateVendorStatus, formatCurrency, formatTimestamp } from '../services/firestoreService';
+import { subscribeToVendors, updateVendorStatus, deleteVendor, formatCurrency, formatTimestamp } from '../services/firestoreService';
+import DeleteVendorModal from '../components/DeleteVendorModal';
 
 const statusConfig = {
   approved: { color: 'success', label: 'Approved' },
@@ -31,6 +33,7 @@ const VendorsManagement = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedVendor, setSelectedVendor] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToVendors(setVendors);
@@ -54,6 +57,12 @@ const VendorsManagement = () => {
     }
     setAnchorEl(null);
     setSelectedVendor(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedVendor) {
+      await deleteVendor(selectedVendor.id);
+    }
   };
 
   const exportCSV = () => {
@@ -119,9 +128,9 @@ const VendorsManagement = () => {
                         <Typography sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{v.name || '—'}</Typography>
                       </Box>
                     </td>
-                    <td>{v.businessName || '—'}</td>
+                    <td>{v.businessName || v.name || '—'}</td>
                     <td style={{ fontFamily: 'monospace' }}>{v.phone || '—'}</td>
-                    <td>{v.city || '—'}</td>
+                    <td>{v.city || v.location || '—'}</td>
                     <td style={{ fontWeight: 600, color: (v.walletBalance || 0) > 0 ? '#00D9A6' : 'inherit' }}>
                       {formatCurrency(v.walletBalance)}
                     </td>
@@ -161,7 +170,18 @@ const VendorsManagement = () => {
           <ListItemIcon><BlockRoundedIcon fontSize="small" sx={{ color: 'warning.main' }} /></ListItemIcon>
           <ListItemText>Suspend</ListItemText>
         </MenuItem>
+        <MenuItem onClick={() => { setAnchorEl(null); setIsDeleteModalOpen(true); }} sx={{ color: 'error.main' }}>
+          <ListItemIcon><DeleteOutlineRoundedIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
+          <ListItemText>Delete Vendor</ListItemText>
+        </MenuItem>
       </Menu>
+
+      <DeleteVendorModal
+        open={isDeleteModalOpen}
+        onClose={() => { setIsDeleteModalOpen(false); setSelectedVendor(null); }}
+        onConfirm={handleDeleteConfirm}
+        vendorName={selectedVendor?.name || 'this vendor'}
+      />
     </Box>
   );
 };
