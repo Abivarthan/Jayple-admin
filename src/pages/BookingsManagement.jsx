@@ -108,12 +108,12 @@ const BookingsManagement = () => {
       <Card sx={{ mb: 3 }}>
         <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <TextField size="small" fullWidth placeholder="Search bookings..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }}
                 InputProps={{ startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ color: 'text.secondary', fontSize: '1.1rem' }} /></InputAdornment> }}
               />
             </Grid>
-            <Grid xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {['all', 'today', 'pending', 'completed', 'cancelled'].map((s) => (
                   <Chip key={s} label={s.charAt(0).toUpperCase() + s.slice(1)} onClick={() => { setStatusFilter(s); setPage(0); }}
@@ -122,7 +122,7 @@ const BookingsManagement = () => {
                 ))}
               </Box>
             </Grid>
-            <Grid xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <TextField label="From" type="date" size="small" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={{ flex: 1 }} />
                 <TextField label="To" type="date" size="small" value={endDate} onChange={(e) => { setEndDate(e.target.value); setPage(0); }} InputLabelProps={{ shrink: true }} sx={{ flex: 1 }} />
@@ -142,40 +142,42 @@ const BookingsManagement = () => {
               '& tbody tr': { transition: 'all 0.2s ease', '&:hover': { bgcolor: 'action.hover' } },
             }}>
               <thead>
-                <tr><th>Booking ID</th><th>Customer</th><th>Vendor</th><th>Service</th><th>Amount</th><th>Status</th><th>Date</th></tr>
+                <tr>
+                  <th>Booking ID</th>
+                  <th>Customer Name</th>
+                  <th>Phone</th>
+                  <th>Service</th>
+                  <th>Total Amount</th>
+                  <th>Paid Online</th>
+                  <th>Pay at Store</th>
+                  <th>Payment Type</th>
+                  <th>Status</th>
+                  <th>Booking Date</th>
+                </tr>
               </thead>
               <tbody>
                 {paged.map((b) => (
                   <tr key={b.id}>
                     <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>#{(b.id || '').slice(0, 8)}</td>
                     <td>{b.customerName}</td>
+                    <td>{b.customerPhone || b.phone || '—'}</td>
+                    <td>{b.serviceName || b.service || '—'}</td>
+                    <td style={{ fontWeight: 600 }}>{formatCurrency(b.totalAmount || b.amount)}</td>
+                    <td style={{ color: '#10B981', fontWeight: 500 }}>{formatCurrency(b.paidOnline || 0)}</td>
+                    <td style={{ color: '#F59E0B', fontWeight: 500 }}>{formatCurrency(b.payAtStore || 0)}</td>
                     <td>
-                      {b.vendorId ? (
-                        <Button
-                          size="small"
-                          onClick={() => navigate(`/vendors/${b.vendorId}`)}
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            p: 0,
-                            minWidth: 'auto',
-                            color: 'primary.main',
-                            '&:hover': { textDecoration: 'underline', bgcolor: 'transparent' }
-                          }}
-                        >
-                          {b.vendorName}
-                        </Button>
-                      ) : (
-                        b.vendorName
-                      )}
+                      <Chip 
+                        label={b.paidOnline > 0 && b.payAtStore > 0 ? "Split Payment" : (b.paymentMethod || 'Cash')} 
+                        size="small" 
+                        variant="outlined"
+                        color={b.paidOnline > 0 && b.payAtStore > 0 ? "secondary" : "default"}
+                      />
                     </td>
-                    <td>{b.service || '—'}</td>
-                    <td style={{ fontWeight: 600 }}>{formatCurrency(b.amount)}</td>
                     <td><Chip label={statusConfig[b.status]?.label || b.status || 'Unknown'} color={statusConfig[b.status]?.color || 'default'} size="small" variant="outlined" /></td>
                     <td style={{ color: '#94A3B8' }}>{formatTimestamp(b.createdAt)}</td>
                   </tr>
                 ))}
-                {paged.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>No bookings found</td></tr>}
+                {paged.length === 0 && <tr><td colSpan={10} style={{ textAlign: 'center', color: '#94A3B8', padding: '2rem' }}>No bookings found</td></tr>}
               </tbody>
             </Box>
           </Box>

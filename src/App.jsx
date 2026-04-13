@@ -10,6 +10,7 @@ import BookingsManagement from './pages/BookingsManagement';
 import Settlements from './pages/Settlements';
 import Disputes from './pages/Disputes';
 import VendorDetails from './pages/VendorDetails';
+import PlatformEarnings from './pages/PlatformEarnings';
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
@@ -84,6 +85,7 @@ function App() {
               <Route path="/customers" element={<CustomersManagement />} />
               <Route path="/bookings" element={<BookingsManagement />} />
               <Route path="/settlements" element={<Settlements />} />
+              <Route path="/earnings" element={<PlatformEarnings />} />
               <Route path="/disputes" element={<Disputes />} />
             </Route>
             <Route path="*" element={<Navigate to="/" />} />

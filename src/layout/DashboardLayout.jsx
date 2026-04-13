@@ -26,6 +26,7 @@ import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneR
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
+import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 
 const DRAWER_WIDTH = 272;
 
@@ -35,6 +36,7 @@ const navItems = [
   { label: 'Customers', icon: <PeopleRoundedIcon />, path: '/customers' },
   { label: 'Bookings', icon: <EventNoteRoundedIcon />, path: '/bookings' },
   { label: 'Settlements', icon: <AccountBalanceWalletRoundedIcon />, path: '/settlements' },
+  { label: 'Platform Earnings', icon: <TrendingUpRoundedIcon />, path: '/earnings' },
   { label: 'Disputes', icon: <GavelRoundedIcon />, path: '/disputes' },
 ];
 

@@ -14,7 +14,7 @@ import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import { motion } from 'framer-motion';
-import { subscribeToVendors, updateVendorStatus, deleteVendor, formatCurrency, formatTimestamp } from '../services/firestoreService';
+import { subscribeToVendors, updateVendorStatus, deleteVendor, formatCurrency, formatTimestamp, formatLocation } from '../services/firestoreService';
 import DeleteVendorModal from '../components/DeleteVendorModal';
 
 const statusConfig = {
@@ -68,7 +68,7 @@ const VendorsManagement = () => {
   const exportCSV = () => {
     const headers = ['Name', 'Business', 'Phone', 'Status', 'City', 'Wallet Balance', 'Created'];
     const rows = filtered.map((v) => [
-      v.name || '', v.businessName || '', v.phone || '', v.status || '', v.city || '',
+      v.name || '', v.businessName || '', v.phone || '', v.status || '', formatLocation(v.city || v.location),
       v.walletBalance || 0, formatTimestamp(v.createdAt),
     ]);
     const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
@@ -130,7 +130,7 @@ const VendorsManagement = () => {
                     </td>
                     <td>{v.businessName || v.name || '—'}</td>
                     <td style={{ fontFamily: 'monospace' }}>{v.phone || '—'}</td>
-                    <td>{v.city || v.location || '—'}</td>
+                    <td>{formatLocation(v.city || v.location)}</td>
                     <td style={{ fontWeight: 600, color: (v.walletBalance || 0) > 0 ? '#00D9A6' : 'inherit' }}>
                       {formatCurrency(v.walletBalance)}
                     </td>
